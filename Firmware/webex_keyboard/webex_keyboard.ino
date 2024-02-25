@@ -13,6 +13,8 @@ int lastVideoButtonState = HIGH;      // previous state of the video button
 unsigned long lastVideoDebounceTime = 0;  // last time the video button state was toggled
 unsigned long videoDebounceDelay = 50;  // debounce time in milliseconds
 
+typedef void (*ButtonAction)();
+
 void setup() {
   pinMode(MUTE_PIN, INPUT_PULLUP);
   pinMode(VIDEO_PIN, INPUT_PULLUP);
@@ -20,52 +22,47 @@ void setup() {
   Keyboard.begin();
 }
 
-void loop() {
-  // TOGGLE MUTE (SHIFT + COMMAND + M)
-  int muteReading = digitalRead(MUTE_PIN);
-  if (muteReading != lastMuteButtonState) {
-    lastMuteDebounceTime = millis();
+void handleButton(int buttonPin, int *lastButtonState, unsigned long *lastDebounceTime, int *buttonState, unsigned long debounceDelay, ButtonAction action) {
+  int buttonReading = digitalRead(buttonPin);
+  if (buttonReading != *lastButtonState) {
+    *lastDebounceTime = millis();
   }
 
-  if ((millis() - lastMuteDebounceTime) > muteDebounceDelay) {
-    if (muteReading != muteButtonState) {
-      muteButtonState = muteReading;
+  if ((millis() - *lastDebounceTime) > debounceDelay) {
+    if (buttonReading != *buttonState) {
+      *buttonState = buttonReading;
 
-      if (muteButtonState == LOW) {
-        Keyboard.press(KEY_LEFT_GUI);
-        Keyboard.press(KEY_LEFT_SHIFT);
-        Keyboard.press('M');
-        releaseKeys();
+      if (*buttonState == LOW) {
+        action();
       }
     }
   }
 
-  lastMuteButtonState = muteReading;
-
-  // TOGGLE VIDEO (CONTROL + SHIFT + V)
-  int videoReading = digitalRead(VIDEO_PIN);
-  if (videoReading != lastVideoButtonState) {
-    lastVideoDebounceTime = millis();
-  }
-
-  if ((millis() - lastVideoDebounceTime) > videoDebounceDelay) {
-    if (videoReading != videoButtonState) {
-      videoButtonState = videoReading;
-
-      if (videoButtonState == LOW) {
-        Keyboard.press(KEY_LEFT_CTRL);
-        Keyboard.press(KEY_LEFT_SHIFT);
-        Keyboard.press('V');
-        releaseKeys();
-      }
-    }
-  }
-
-  lastVideoButtonState = videoReading;
+  *lastButtonState = buttonReading;
 }
 
-void releaseKeys() {
+// TOGGLE MUTE (SHIFT + COMMAND + M)
+void toggleMute() {
+  Keyboard.press(KEY_LEFT_GUI);
+  Keyboard.press(KEY_LEFT_SHIFT);
+  Keyboard.press('M');
   delay(100);
   Keyboard.releaseAll();
   delay(100);
 }
+
+// TOGGLE VIDEO (CONTROL + SHIFT + V)
+void toggleVideo() {
+  Keyboard.press(KEY_LEFT_CTRL);
+  Keyboard.press(KEY_LEFT_SHIFT);
+  Keyboard.press('V');
+  delay(100);
+  Keyboard.releaseAll();
+  delay(100);
+}
+
+void loop() {
+  handleButton(MUTE_PIN, &lastMuteButtonState, &lastMuteDebounceTime, &muteButtonState, muteDebounceDelay, toggleMute);
+  handleButton(VIDEO_PIN, &lastVideoButtonState, &lastVideoDebounceTime, &videoButtonState, videoDebounceDelay, toggleVideo);
+}
+
